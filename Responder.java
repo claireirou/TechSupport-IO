@@ -14,6 +14,9 @@ import java.util.*;
  * in the HashMap, the corresponding response is returned. If none of the input
  * words is recognized, one of the default responses is randomly chosen.
  * 
+ * @author Claire Iroudayassamy
+ * @version 2019.05.04
+ * 
  * @author David J. Barnes and Michael Kölling.
  * @version 2016.02.29
  */
@@ -25,6 +28,8 @@ public class Responder
     private ArrayList<String> defaultResponses;
     // The name of the file containing the default responses.
     private static final String FILE_OF_DEFAULT_RESPONSES = "default.txt";
+    // The name of the file containing the keywords and their responses.
+    private static final String FILE_OF_RESPONSES = "response.txt";
     private Random randomGenerator;
 
     /**
@@ -67,52 +72,47 @@ public class Responder
      */
     private void fillResponseMap()
     {
-        responseMap.put("crash", 
-                        "Well, it never crashes on our system. It must have something\n" +
-                        "to do with your system. Tell me more about your configuration.");
-        responseMap.put("crashes", 
-                        "Well, it never crashes on our system. It must have something\n" +
-                        "to do with your system. Tell me more about your configuration.");
-        responseMap.put("slow", 
-                        "I think this has to do with your hardware. Upgrading your processor\n" +
-                        "should solve all performance problems. Have you got a problem with\n" +
-                        "our software?");
-        responseMap.put("performance", 
-                        "Performance was quite adequate in all our tests. Are you running\n" +
-                        "any other processes in the background?");
-        responseMap.put("bug", 
-                        "Well, you know, all software has some bugs. But our software engineers\n" +
-                        "are working very hard to fix them. Can you describe the problem a bit\n" +
-                        "further?");
-        responseMap.put("buggy", 
-                        "Well, you know, all software has some bugs. But our software engineers\n" +
-                        "are working very hard to fix them. Can you describe the problem a bit\n" +
-                        "further?");
-        responseMap.put("windows", 
-                        "This is a known bug to do with the Windows operating system. Please\n" +
-                        "report it to Microsoft. There is nothing we can do about this.");
-        responseMap.put("macintosh", 
-                        "This is a known bug to do with the Mac operating system. Please\n" +
-                        "report it to Apple. There is nothing we can do about this.");
-        responseMap.put("expensive", 
-                        "The cost of our product is quite competitive. Have you looked around\n" +
-                        "and really compared our features?");
-        responseMap.put("installation", 
-                        "The installation is really quite straight forward. We have tons of\n" +
-                        "wizards that do all the work for you. Have you read the installation\n" +
-                        "instructions?");
-        responseMap.put("memory", 
-                        "If you read the system requirements carefully, you will see that the\n" +
-                        "specified memory requirements are 1.5 giga byte. You really should\n" +
-                        "upgrade your memory. Anything else you want to know?");
-        responseMap.put("linux", 
-                        "We take Linux support very seriously. But there are some problems.\n" +
-                        "Most have to do with incompatible glibc versions. Can you be a bit\n" +
-                        "more precise?");
-        responseMap.put("bluej", 
-                        "Ahhh, BlueJ, yes. We tried to buy out those guys long ago, but\n" +
-                        "they simply won't sell... Stubborn people they are. Nothing we can\n" +
-                        "do about it, I'm afraid.");
+        Charset charset = Charset.forName("US-ASCII");
+        Path path = Paths.get(FILE_OF_RESPONSES);
+        try (BufferedReader reader = Files.newBufferedReader(path, charset)) {
+            boolean blankLine = true;        // Keeps track of if previous line was blank or not.
+            ArrayList<String> keywords = new ArrayList<String>();   // Stores all keywords to be mapped.
+            String response = "";            // String to build response.
+            String read = reader.readLine(); //Sting to store individual lines.
+            
+            while(read != null) {
+                if(read.trim().length() == 0) {
+                    // Line is blank or only contains whitespace characters
+                    blankLine = true;
+                    
+                    // Map keywords and their response if any.
+                    for (String keyword : keywords) {
+                        responseMap.put(keyword.trim(), response);
+                    }
+                    // Reset variables for next keyword, response pair.
+                    keywords.clear();
+                    response = "";
+                } else {
+                    // Line contains characters we need to parse.
+                    if(blankLine) {
+                        // Previous line was blank so this line contains keywords.
+                        keywords = new ArrayList(Arrays.asList(read.split(",")));
+                        blankLine = false;
+                    } else {
+                        // Previous line was not blank so this line contains response.
+                        response += read + "\n";
+                    }
+                }
+                // get the next line.
+                read = reader.readLine();
+            }
+        }
+        catch(FileNotFoundException e) {
+            System.err.println("Unable to open " + FILE_OF_RESPONSES);
+        }
+        catch(IOException e) {
+            System.err.println("A problem was encountered reading " + FILE_OF_RESPONSES);
+        }
     }
 
     /**
@@ -124,10 +124,29 @@ public class Responder
         Charset charset = Charset.forName("US-ASCII");
         Path path = Paths.get(FILE_OF_DEFAULT_RESPONSES);
         try (BufferedReader reader = Files.newBufferedReader(path, charset)) {
-            String response = reader.readLine();
-            while(response != null) {
-                defaultResponses.add(response);
-                response = reader.readLine();
+            boolean blankLine = true;
+            String response = "";
+            String read = reader.readLine();
+            while(read != null) {
+                if(read.trim().length() == 0) {
+                    // Line is effectively blank.
+                    blankLine = true;
+                    if(response != "") {
+                        // response is not empty.
+                        defaultResponses.add(response);
+                    }
+                } else {
+                    if(blankLine) {
+                        // Previous line was blank so this line is the start of response.
+                        response = read;
+                        blankLine = false;
+                    } else {
+                        // Previous line was not blank so this is a continuation of response.
+                        response += read + "\n";
+                    }
+                }
+                //get the next line.
+                read = reader.readLine();
             }
         }
         catch(FileNotFoundException e) {
